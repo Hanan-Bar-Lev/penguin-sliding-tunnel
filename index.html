@@ -14,7 +14,7 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #1a202c;
+            <!-- background-color: #1a202c; -->
             color: #e2e8f0;
             overflow: hidden;
             padding: 10px; /* Added padding for mobile view */
@@ -335,7 +335,7 @@
 
         // --- Drawing Functions ---
         function drawSky() {
-            ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);
+            ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);//currentTunnelColor;
             ctx.fillRect(0, 0, BASE_WIDTH, VP_CENTER_Y - VP_OPENING_RADIUS);
             
             ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);
@@ -644,6 +644,7 @@
             lastTime = timestamp;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear entire current canvas
+			drawSky();		  
 
             // Apply scaling to the context
             ctx.save();
