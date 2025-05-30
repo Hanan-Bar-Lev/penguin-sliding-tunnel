@@ -17,6 +17,7 @@
             background-color: #1a202c;
             color: #e2e8f0;
             overflow: hidden;
+            padding: 10px; /* Added padding for mobile view */
         }
         #gameArea {
             display: flex;
@@ -28,12 +29,18 @@
             border-radius: 0.5rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             background-color: #2d3748;
-            width: 800px;
-            height: 600px;
+            /* Responsive sizing */
+            max-width: 100%; 
+            max-height: 100vh;
+            aspect-ratio: 800 / 600; /* Maintain aspect ratio */
+            width: 100%; /* Will be overridden by JS for exact px, but good default */
+            height: auto; /* Will be overridden by JS, but good default */
         }
         canvas {
             display: block;
             border-radius: 0.5rem;
+            width: 100%; /* Canvas fills its parent */
+            height: 100%; /* Canvas fills its parent */
         }
         .ui-overlay {
             position: absolute;
@@ -45,7 +52,8 @@
             align-items: center;
             padding: 10px;
             color: white;
-            font-size: 1.2em;
+            /* Responsive font size */
+            font-size: clamp(0.9em, 3vw, 1.2em); 
             z-index: 10;
         }
         .ui-element {
@@ -72,11 +80,12 @@
             transform: translate(-50%, -50%);
             background-color: rgba(45, 55, 72, 0.95);
             color: white;
-            padding: 20px 30px;
+            /* Responsive padding and font size */
+            padding: clamp(15px, 5vw, 30px) clamp(20px, 6vw, 30px); 
             border-radius: 0.5rem;
             text-align: center;
             z-index: 20;
-            font-size: 1.2em;
+            font-size: clamp(1em, 4vw, 1.2em); 
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             border: 2px solid #4a5568;
             max-width: 90%;
@@ -84,15 +93,25 @@
             flex-direction: column;
             align-items: center;
         }
-        #messageBox h2 { font-size: 1.5em; margin-bottom: 10px; }
-        #messageBox p { margin-bottom: 15px; font-size: 0.9em; line-height: 1.4; }
+        #messageBox h2 { 
+            /* Responsive font size */
+            font-size: clamp(1.2em, 5vw, 1.5em); 
+            margin-bottom: 10px; 
+        }
+        #messageBox p { 
+            /* Responsive font size */
+            margin-bottom: 15px; 
+            font-size: clamp(0.8em, 3.5vw, 0.9em); 
+            line-height: 1.4; 
+        }
         #messageBox button {
             background-color: #4299e1;
             color: white;
-            padding: 10px 20px;
+            /* Responsive padding and font size */
+            padding: clamp(8px, 3vw, 10px) clamp(15px, 6vw, 20px); 
             border: none;
             border-radius: 0.375rem;
-            font-size: 0.9em;
+            font-size: clamp(0.8em, 3.5vw, 0.9em); 
             margin: 10px 5px 0;
             cursor: pointer;
             transition: background-color 0.3s ease;
@@ -103,28 +122,32 @@
             justify-content: center;
             align-items: center;
             margin-top: 15px;
-            height: 60px;
-            /* Removed visibility: hidden; - Controls are always visible */
+            height: 60px; 
+            /* Responsive width, capped at original game width */
+            width: 90%; 
+            max-width: 800px; 
+            box-sizing: border-box; /* Include padding/border in width */
         }
         .control-key {
             background-color: #4a5568;
             color: white;
             border: 2px solid #718096;
             border-radius: 0.375rem;
-            width: 50px;
-            height: 50px;
+            /* Responsive width/height and font size */
+            width: clamp(40px, 8vw, 50px); 
+            height: clamp(40px, 8vw, 50px); 
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             margin: 0 10px;
             font-weight: bold;
-            font-size: 1.2em;
-            cursor: pointer; /* Indicate it's clickable */
-            transition: background-color 0.1s ease; /* Smooth hover effect */
+            font-size: clamp(0.9em, 4vw, 1.2em); 
+            cursor: pointer; 
+            transition: background-color 0.1s ease; 
         }
         .control-key:hover {
-            background-color: #5a6578; /* Hover effect */
+            background-color: #5a6578; 
         }
         .control-key .arrow { font-size: 0.8em; }
     </style>
@@ -153,9 +176,9 @@
     </div>
 
     <script>
-        // --- Game Configuration ---
-        const CANVAS_WIDTH = 800;
-        const CANVAS_HEIGHT = 600;
+        // --- Game Configuration (These now define the BASE coordinate system) ---
+        const BASE_WIDTH = 800;
+        const BASE_HEIGHT = 600;
         
         const PENGUIN_WIDTH = 85; 
         const PENGUIN_HEIGHT = 95; 
@@ -177,8 +200,8 @@
         const MIN_CHOICE_TIME_LIMIT_MS = 500;
 		
         const VP_OPENING_RADIUS = 60; 
-        const VP_CENTER_X = CANVAS_WIDTH / 2;
-        const VP_CENTER_Y = CANVAS_HEIGHT / 2 - 40; 
+        const VP_CENTER_X = BASE_WIDTH / 2; // Relative to BASE_WIDTH
+        const VP_CENTER_Y = BASE_HEIGHT / 2 - 40; // Relative to BASE_HEIGHT
 
         const NUM_RIBS = 10;
         const INITIAL_RIB_SPEED = 0.22;
@@ -197,6 +220,10 @@
         let choiceStartTime;
         let ribs = []; 
         let animationFrameId;
+
+        // --- Responsive Variables ---
+        let currentCanvasWidth, currentCanvasHeight;
+        let scaleFactor;
 
         // --- UI Elements ---
         let scoreBoard, choiceTimerDisplay, speedDisplayElement, messageBox, messageTitle, messageText, stopButton, controlsDisplay;
@@ -228,8 +255,8 @@
             slideEndTime = Date.now() + getRandomInt(currentMinSlideDuration, currentMaxSlideDuration);
             
             penguin = {
-                x: CANVAS_WIDTH / 2,
-                y: CANVAS_HEIGHT - PENGUIN_HEIGHT / 2 - 10,
+                x: BASE_WIDTH / 2, // Use BASE_WIDTH for initial position
+                y: BASE_HEIGHT - PENGUIN_HEIGHT / 2 - 10, // Use BASE_HEIGHT for initial position
                 width: PENGUIN_WIDTH,
                 height: PENGUIN_HEIGHT,
                 isJumping: false,
@@ -288,21 +315,16 @@
             if (messageBox) messageBox.style.display = 'none'; 
         }
 
-        // Modified: Removed numChoices parameter as it's always 3
         function showControlsDisplay() {
-            // No need to change visibility for controlsDisplay as it's always visible
-            // Ensure all control keys are initially flex
             controlKey1.style.display = 'flex';
             controlKey2.style.display = 'flex';
             controlKey3.style.display = 'flex';
 
-            // Always display default text for 3 choices
             controlKey2.innerHTML = `2<span class="arrow">↑</span>`;
             controlKey3.innerHTML = `3<span class="arrow">→</span>`;
         }
 
         function resetControlsDisplay() {
-            // Ensure all keys are visible and show their default text/arrows
             controlKey1.style.display = 'flex';
             controlKey2.style.display = 'flex';
             controlKey3.style.display = 'flex';
@@ -313,16 +335,16 @@
 
         // --- Drawing Functions ---
         function drawSky() {
-            ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);//currentTunnelColor;
-            ctx.fillRect(0, 0, CANVAS_WIDTH, VP_CENTER_Y - VP_OPENING_RADIUS);
+            ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);
+            ctx.fillRect(0, 0, BASE_WIDTH, VP_CENTER_Y - VP_OPENING_RADIUS);
             
             ctx.fillStyle = darkenColor(currentTunnelColor, 0.2);
-            ctx.fillRect(0, VP_CENTER_Y - VP_OPENING_RADIUS, CANVAS_WIDTH, VP_OPENING_RADIUS);
+            ctx.fillRect(0, VP_CENTER_Y - VP_OPENING_RADIUS, BASE_WIDTH, VP_OPENING_RADIUS);
         }
 
         function drawTunnel() {
             ctx.fillStyle = currentTunnelColor;
-            ctx.fillRect(0, VP_CENTER_Y, CANVAS_WIDTH, CANVAS_HEIGHT - VP_CENTER_Y);
+            ctx.fillRect(0, VP_CENTER_Y, BASE_WIDTH, BASE_HEIGHT - VP_CENTER_Y);
 
             const ribColor = darkenColor(currentTunnelColor, RIB_COLOR_DARKEN_FACTOR);
             ctx.strokeStyle = ribColor;
@@ -330,7 +352,7 @@
 
             ribs.forEach(rib => {
                 const z = rib.z;
-                const currentRibRadius = VP_OPENING_RADIUS + (Math.max(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.85 - VP_OPENING_RADIUS) * z * z;
+                const currentRibRadius = VP_OPENING_RADIUS + (Math.max(BASE_WIDTH, BASE_HEIGHT) * 0.85 - VP_OPENING_RADIUS) * z * z;
                 
                 ctx.beginPath();
                 ctx.arc(VP_CENTER_X, VP_CENTER_Y, currentRibRadius, 0, Math.PI, false);
@@ -407,6 +429,7 @@
         function drawJunctionChoices() {
             if (!junction.active) return;
             const numActualChoices = junction.choices.length;
+            const anglePerChoice = Math.PI / numActualChoices;
 
             // Draw choices in reverse order (1,2,3 from left to right)
             for (let i = junction.choices.length - 1; i >= 0; i--) {
@@ -419,9 +442,9 @@
                 ctx.beginPath();
                 ctx.moveTo(shapeInfo.cx, shapeInfo.cy);
                 
-                const anglePerChoice = Math.PI / numActualChoices;
-                const drawStartAngle = (numActualChoices - 1 - i) * anglePerChoice; // Reverse the order
-                const drawEndAngle = (numActualChoices - i) * anglePerChoice; // Reverse the order
+                // Corrected: Use calculated startAngle and endAngle for the arc segment
+                const drawStartAngle = (numActualChoices - 1 - i) * anglePerChoice; 
+                const drawEndAngle = (numActualChoices - i) * anglePerChoice; 
 
                 ctx.arc(shapeInfo.cx, shapeInfo.cy, shapeInfo.radius, drawStartAngle, drawEndAngle);
                 ctx.closePath();
@@ -435,7 +458,7 @@
                 const textAngle = (drawStartAngle + drawEndAngle) / 2;
                 const textRadius = shapeInfo.radius * 0.65;
                 const textX = shapeInfo.cx + textRadius * Math.cos(textAngle);
-                const textY = shapeInfo.cy + textRadius * Math.sin(textAngle);
+                const textY = shapeInfo.cy + textRadius * Math.sin(textAngle); // Y-axis is positive downwards in canvas
                 ctx.fillText(keyHint, textX, textY);
             }
         }
@@ -455,7 +478,7 @@
             if (penguin.jumpProgress >= 1) {
                 penguin.isJumping = false;
                 penguin.jumpProgress = 1;
-                penguin.y = CANVAS_HEIGHT - PENGUIN_HEIGHT / 2 - 10;
+                penguin.y = BASE_HEIGHT - PENGUIN_HEIGHT / 2 - 10; // Use BASE_HEIGHT
                 gameState = 'SLIDING';
                 slideEndTime = Date.now() + getRandomInt(currentMinSlideDuration, currentMaxSlideDuration);
             } else {
@@ -467,7 +490,7 @@
         function createJunction() {
             junction.active = true;
             junction.choices = [];
-            const numChoices = 3; // Changed: Always 3 choices
+            const numChoices = 3; // Always 3 choices
             
             const availableColors = TUNNEL_COLORS.filter(c => c !== currentTunnelColor);
             const otherColors = [];
@@ -492,8 +515,7 @@
                 { hint: '3 →', codes: [51, 39], visualSlot: 2 }
             ];
             
-            // Active mappings are always baseKeyMappings as numChoices is always 3
-            const activeMappings = baseKeyMappings;
+            const activeMappings = baseKeyMappings; // Always use all 3 mappings
 
             const anglePerChoice = Math.PI / numChoices;
 
@@ -522,11 +544,10 @@
             
             choiceStartTime = Date.now();
             showChoiceTimer();
-            showControlsDisplay(); // Modified: No argument needed as numChoices is always 3
+            showControlsDisplay();
         }
 
         function handlePlayerChoice(selectedIndex) {
-            // Only process choices if the game is in the decision state and a junction is active
             if (gameState !== 'JUNCTION_DECISION' || !junction.active) return;
 
             if (selectedIndex === junction.correctChoiceIndex) {
@@ -544,7 +565,7 @@
                 startJump();
                 junction.active = false;
                 hideChoiceTimer();
-                resetControlsDisplay(); // Reset controls after a successful choice
+                resetControlsDisplay(); 
             } else {
                 gameOver("Wrong tunnel!");
             }
@@ -553,7 +574,7 @@
         function gameOver(reason) {
             gameState = 'GAME_OVER';
             hideChoiceTimer();
-            resetControlsDisplay(); // Reset controls on game over
+            resetControlsDisplay(); 
             showMessageBox(
                 "Game Over!",
                 `${reason}<br>Your final score: ${score}<br>Max Speed: ${(currentRibSpeed / INITIAL_RIB_SPEED).toFixed(1)}x`,
@@ -580,8 +601,7 @@
                 else if (event.keyCode === 51 || event.keyCode === 39) choiceIndexPressed = 2; // 3 or Right Arrow
 
                 if (choiceIndexPressed !== -1) {
-                    // Modified: Always directly map for 3 choices
-                    const actualChoiceInJunctionArray = choiceIndexPressed; 
+                    const actualChoiceInJunctionArray = choiceIndexPressed; // Direct mapping for 3 choices
                     
                     if(actualChoiceInJunctionArray < junction.choices.length && actualChoiceInJunctionArray >= 0) {
                             handlePlayerChoice(actualChoiceInJunctionArray);
@@ -610,7 +630,11 @@
         function gameLoop(timestamp) {
             if (gameState === 'PAUSED' || gameState === 'PRE_GAME' || gameState === 'GAME_OVER') {
                 if (gameState === 'GAME_OVER' && animationFrameId) {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear entire current canvas
+                        ctx.save();
+                        ctx.scale(scaleFactor, scaleFactor);
                         drawSky(); drawTunnel(); if (junction.active) drawJunctionChoices(); drawPenguin();
+                        ctx.restore();
                 }
                 cancelAnimationFrame(animationFrameId);
                 return;
@@ -619,8 +643,11 @@
             const deltaTime = (timestamp - lastTime) / 1000 || 0;
             lastTime = timestamp;
 
-            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            drawSky();
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear entire current canvas
+
+            // Apply scaling to the context
+            ctx.save();
+            ctx.scale(scaleFactor, scaleFactor);
 
             if (gameState === 'SLIDING') {
                 ribs.forEach(rib => {
@@ -666,7 +693,46 @@
                 }
             }
             
+            ctx.restore(); // Restore context to original state (important!)
             animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Function to handle canvas and UI resizing
+        function resizeGame() {
+            const gameContainer = document.getElementById('gameContainer');
+            
+            // Determine max dimensions based on viewport, maintaining aspect ratio
+            const aspectRatio = BASE_WIDTH / BASE_HEIGHT;
+            let newWidth = window.innerWidth;
+            let newHeight = window.innerHeight;
+
+            // Give some padding, e.g., 20px on each side if possible
+            const padding = 20;
+            newWidth -= padding * 2;
+            newHeight -= padding * 2;
+
+            if (newWidth / newHeight > aspectRatio) {
+                currentCanvasHeight = newHeight;
+                currentCanvasWidth = currentCanvasHeight * aspectRatio;
+            } else {
+                currentCanvasWidth = newWidth;
+                currentCanvasHeight = currentCanvasWidth / aspectRatio;
+            }
+
+            // Cap the size at the original base dimensions if on a very large screen
+            currentCanvasWidth = Math.min(currentCanvasWidth, BASE_WIDTH);
+            currentCanvasHeight = Math.min(currentCanvasHeight, BASE_HEIGHT);
+
+            canvas.width = currentCanvasWidth;
+            canvas.height = currentCanvasHeight;
+
+            scaleFactor = currentCanvasWidth / BASE_WIDTH; // Or currentCanvasHeight / BASE_HEIGHT, should be the same
+
+            // Adjust game container and controls display widths
+            gameContainer.style.width = `${currentCanvasWidth}px`;
+            gameContainer.style.height = `${currentCanvasHeight}px`;
+
+            controlsDisplay.style.width = `${currentCanvasWidth}px`;
         }
         
         function initGameAndLoop(goToPreGame = false) {
@@ -674,20 +740,24 @@
 
             if (goToPreGame) {
                 gameState = 'PRE_GAME';
-                resetControlsDisplay(); // Ensure controls are in default state for pre-game
+                resetControlsDisplay(); 
                 const instructions = "You're a penguin sliding through colorful half-tunnels!<br><br>" +
                                      "At each junction, quickly choose the tunnel that matches your CURRENT slide color.<br>" +
                                      "Use <b>Arrow Keys (←, ↑, →)</b> or <b>Number Keys (1, 2, 3)</b> to select.<br>" +
                                      "The controls are shown at the bottom during choices.<br><br>" +
                                      "The time to choose gets shorter, and the slide gets faster. Good luck!";
-                showMessageBox( "Penguin Sliding Tunnel", instructions,
+                showMessageBox( "Welcome Back!", instructions,
                     [{ text: "Go!", action: () => { hideMessageBox(); initGame(); lastTime = performance.now(); gameLoop(); } }]
                 );
                 // Clear and draw a placeholder state for pre-game screen
-                ctx.fillStyle = '#1a202c'; ctx.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT/2);
-                ctx.fillStyle = '#333'; ctx.fillRect(0,CANVAS_HEIGHT/2,CANVAS_WIDTH, CANVAS_HEIGHT/2);
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear current canvas size
+                ctx.save();
+                ctx.scale(scaleFactor, scaleFactor);
+                ctx.fillStyle = '#1a202c'; ctx.fillRect(0,0,BASE_WIDTH, BASE_HEIGHT/2);
+                ctx.fillStyle = '#333'; ctx.fillRect(0,BASE_HEIGHT/2,BASE_WIDTH, BASE_HEIGHT/2);
                 ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center';
-                ctx.fillText("Penguin Tunnel Slide", CANVAS_WIDTH/2, CANVAS_HEIGHT/2 - 20);
+                ctx.fillText("Penguin Tunnel Slide", BASE_WIDTH/2, BASE_HEIGHT/2 - 20);
+                ctx.restore();
             } else {
                 initGame();
                 lastTime = performance.now();
@@ -698,9 +768,7 @@
         window.onload = () => {
             canvas = document.getElementById('gameCanvas');
             ctx = canvas.getContext('2d');
-            canvas.width = CANVAS_WIDTH;
-            canvas.height = CANVAS_HEIGHT;
-
+            
             scoreBoard = document.getElementById('scoreBoard');
             speedDisplayElement = document.getElementById('speedDisplay');
             choiceTimerDisplay = document.getElementById('choiceTimerDisplay');
@@ -736,24 +804,27 @@
             document.addEventListener('keydown', handleKeyDown);
             stopButton.addEventListener('click', togglePause);
             
-            // Add click listeners for the control keys
             controlKey1.addEventListener('click', () => {
                 if (gameState === 'JUNCTION_DECISION' && junction.active) {
-                    handlePlayerChoice(0); // Corresponds to the first choice (index 0)
+                    handlePlayerChoice(0); 
                 }
             });
 
             controlKey2.addEventListener('click', () => {
                 if (gameState === 'JUNCTION_DECISION' && junction.active) {
-                    handlePlayerChoice(1); // Corresponds to the second choice (index 1)
+                    handlePlayerChoice(1); 
                 }
             });
 
             controlKey3.addEventListener('click', () => {
                 if (gameState === 'JUNCTION_DECISION' && junction.active) {
-                    handlePlayerChoice(2); // Modified: Always maps to the third choice (index 2)
+                    handlePlayerChoice(2); 
                 }
             });
+
+            // Initial resize and set up
+            resizeGame();
+            window.addEventListener('resize', resizeGame);
 
             // Start the game loop and show the pre-game message
             initGameAndLoop(true);
