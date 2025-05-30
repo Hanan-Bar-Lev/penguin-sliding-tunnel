@@ -104,7 +104,7 @@
             align-items: center;
             margin-top: 15px;
             height: 60px;
-            visibility: hidden;
+            /* Removed visibility: hidden; - Controls are always visible */
         }
         .control-key {
             background-color: #4a5568;
@@ -120,6 +120,11 @@
             margin: 0 10px;
             font-weight: bold;
             font-size: 1.2em;
+            cursor: pointer; /* Indicate it's clickable */
+            transition: background-color 0.1s ease; /* Smooth hover effect */
+        }
+        .control-key:hover {
+            background-color: #5a6578; /* Hover effect */
         }
         .control-key .arrow { font-size: 0.8em; }
     </style>
@@ -240,7 +245,7 @@
             updateSpeedDisplay();
             hideChoiceTimer();
             hideMessageBox();
-            hideControlsDisplay();
+            resetControlsDisplay(); // Set controls to default visible state at game start
             gameState = 'SLIDING';
         }
 
@@ -283,20 +288,28 @@
             if (messageBox) messageBox.style.display = 'none'; 
         }
 
-        function showControlsDisplay(numChoices) {
-            controlsDisplay.style.visibility = 'visible';
+        // Modified: Removed numChoices parameter as it's always 3
+        function showControlsDisplay() {
+            // No need to change visibility for controlsDisplay as it's always visible
+            // Ensure all control keys are initially flex
             controlKey1.style.display = 'flex';
+            controlKey2.style.display = 'flex';
             controlKey3.style.display = 'flex';
-            if (numChoices === 2) {
-                controlKey2.style.display = 'none';
-                controlKey3.innerHTML = `2<span class="arrow">→</span>`;
-            } else { 
-                controlKey2.style.display = 'flex';
-                controlKey2.innerHTML = `2<span class="arrow">↑</span>`;
-                controlKey3.innerHTML = `3<span class="arrow">→</span>`;
-            }
+
+            // Always display default text for 3 choices
+            controlKey2.innerHTML = `2<span class="arrow">↑</span>`;
+            controlKey3.innerHTML = `3<span class="arrow">→</span>`;
         }
-        function hideControlsDisplay() { controlsDisplay.style.visibility = 'hidden'; }
+
+        function resetControlsDisplay() {
+            // Ensure all keys are visible and show their default text/arrows
+            controlKey1.style.display = 'flex';
+            controlKey2.style.display = 'flex';
+            controlKey3.style.display = 'flex';
+            controlKey1.innerHTML = `1<span class="arrow">←</span>`;
+            controlKey2.innerHTML = `2<span class="arrow">↑</span>`;
+            controlKey3.innerHTML = `3<span class="arrow">→</span>`;
+        }
 
         // --- Drawing Functions ---
         function drawSky() {
@@ -454,7 +467,7 @@
         function createJunction() {
             junction.active = true;
             junction.choices = [];
-            const numChoices = getRandomInt(2, 3);
+            const numChoices = 3; // Changed: Always 3 choices
             
             const availableColors = TUNNEL_COLORS.filter(c => c !== currentTunnelColor);
             const otherColors = [];
@@ -479,14 +492,8 @@
                 { hint: '3 →', codes: [51, 39], visualSlot: 2 }
             ];
             
-            let activeMappings = [];
-            if (numChoices === 2) {
-                activeMappings = [baseKeyMappings[0], baseKeyMappings[2]];
-                activeMappings[1].hint = '2 →';
-                activeMappings[1].codes = [50, 39];
-            } else {
-                activeMappings = baseKeyMappings;
-            }
+            // Active mappings are always baseKeyMappings as numChoices is always 3
+            const activeMappings = baseKeyMappings;
 
             const anglePerChoice = Math.PI / numChoices;
 
@@ -515,10 +522,11 @@
             
             choiceStartTime = Date.now();
             showChoiceTimer();
-            showControlsDisplay(numChoices);
+            showControlsDisplay(); // Modified: No argument needed as numChoices is always 3
         }
 
         function handlePlayerChoice(selectedIndex) {
+            // Only process choices if the game is in the decision state and a junction is active
             if (gameState !== 'JUNCTION_DECISION' || !junction.active) return;
 
             if (selectedIndex === junction.correctChoiceIndex) {
@@ -536,7 +544,7 @@
                 startJump();
                 junction.active = false;
                 hideChoiceTimer();
-                hideControlsDisplay();
+                resetControlsDisplay(); // Reset controls after a successful choice
             } else {
                 gameOver("Wrong tunnel!");
             }
@@ -545,7 +553,7 @@
         function gameOver(reason) {
             gameState = 'GAME_OVER';
             hideChoiceTimer();
-            hideControlsDisplay();
+            resetControlsDisplay(); // Reset controls on game over
             showMessageBox(
                 "Game Over!",
                 `${reason}<br>Your final score: ${score}<br>Max Speed: ${(currentRibSpeed / INITIAL_RIB_SPEED).toFixed(1)}x`,
@@ -567,21 +575,16 @@
             if (gameState === 'JUNCTION_DECISION' && junction.active) {
                 let choiceIndexPressed = -1;
                 
-                if (event.keyCode === 49 || event.keyCode === 37) choiceIndexPressed = 0;
-                else if (event.keyCode === 50 || event.keyCode === 38) choiceIndexPressed = 1;
-                else if (event.keyCode === 51 || event.keyCode === 39) choiceIndexPressed = 2;
+                if (event.keyCode === 49 || event.keyCode === 37) choiceIndexPressed = 0; // 1 or Left Arrow
+                else if (event.keyCode === 50 || event.keyCode === 38) choiceIndexPressed = 1; // 2 or Up Arrow
+                else if (event.keyCode === 51 || event.keyCode === 39) choiceIndexPressed = 2; // 3 or Right Arrow
 
                 if (choiceIndexPressed !== -1) {
-                    let actualChoiceInJunctionArray = -1;
-                    if (junction.choices.length === 2) {
-                        if (choiceIndexPressed === 0) actualChoiceInJunctionArray = 0;
-                        else if (choiceIndexPressed === 2 || choiceIndexPressed === 1) actualChoiceInJunctionArray = 1;
-                    } else {
-                        actualChoiceInJunctionArray = choiceIndexPressed;
-                    }
+                    // Modified: Always directly map for 3 choices
+                    const actualChoiceInJunctionArray = choiceIndexPressed; 
                     
                     if(actualChoiceInJunctionArray < junction.choices.length && actualChoiceInJunctionArray >= 0) {
-                         handlePlayerChoice(actualChoiceInJunctionArray);
+                            handlePlayerChoice(actualChoiceInJunctionArray);
                     }
                 }
             }
@@ -607,7 +610,7 @@
         function gameLoop(timestamp) {
             if (gameState === 'PAUSED' || gameState === 'PRE_GAME' || gameState === 'GAME_OVER') {
                 if (gameState === 'GAME_OVER' && animationFrameId) {
-                     drawSky(); drawTunnel(); if (junction.active) drawJunctionChoices(); drawPenguin();
+                        drawSky(); drawTunnel(); if (junction.active) drawJunctionChoices(); drawPenguin();
                 }
                 cancelAnimationFrame(animationFrameId);
                 return;
@@ -671,14 +674,16 @@
 
             if (goToPreGame) {
                 gameState = 'PRE_GAME';
+                resetControlsDisplay(); // Ensure controls are in default state for pre-game
                 const instructions = "You're a penguin sliding through colorful half-tunnels!<br><br>" +
-                                 "At each junction, quickly choose the tunnel that matches your CURRENT slide color.<br>" +
-                                 "Use <b>Arrow Keys (←, ↑, →)</b> or <b>Number Keys (1, 2, 3)</b> to select.<br>" +
-                                 "The controls are shown at the bottom during choices.<br><br>" +
-                                 "The time to choose gets shorter, and the slide gets faster. Good luck!";
-                showMessageBox( "Welcome Back!", instructions,
+                                     "At each junction, quickly choose the tunnel that matches your CURRENT slide color.<br>" +
+                                     "Use <b>Arrow Keys (←, ↑, →)</b> or <b>Number Keys (1, 2, 3)</b> to select.<br>" +
+                                     "The controls are shown at the bottom during choices.<br><br>" +
+                                     "The time to choose gets shorter, and the slide gets faster. Good luck!";
+                showMessageBox( "Penguin Sliding Tunnel", instructions,
                     [{ text: "Go!", action: () => { hideMessageBox(); initGame(); lastTime = performance.now(); gameLoop(); } }]
                 );
+                // Clear and draw a placeholder state for pre-game screen
                 ctx.fillStyle = '#1a202c'; ctx.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT/2);
                 ctx.fillStyle = '#333'; ctx.fillRect(0,CANVAS_HEIGHT/2,CANVAS_WIDTH, CANVAS_HEIGHT/2);
                 ctx.fillStyle = 'white'; ctx.font = '30px Arial'; ctx.textAlign = 'center';
@@ -731,6 +736,26 @@
             document.addEventListener('keydown', handleKeyDown);
             stopButton.addEventListener('click', togglePause);
             
+            // Add click listeners for the control keys
+            controlKey1.addEventListener('click', () => {
+                if (gameState === 'JUNCTION_DECISION' && junction.active) {
+                    handlePlayerChoice(0); // Corresponds to the first choice (index 0)
+                }
+            });
+
+            controlKey2.addEventListener('click', () => {
+                if (gameState === 'JUNCTION_DECISION' && junction.active) {
+                    handlePlayerChoice(1); // Corresponds to the second choice (index 1)
+                }
+            });
+
+            controlKey3.addEventListener('click', () => {
+                if (gameState === 'JUNCTION_DECISION' && junction.active) {
+                    handlePlayerChoice(2); // Modified: Always maps to the third choice (index 2)
+                }
+            });
+
+            // Start the game loop and show the pre-game message
             initGameAndLoop(true);
         };
     </script>
